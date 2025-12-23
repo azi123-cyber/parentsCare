@@ -1,0 +1,7 @@
+{
+  "name": "Gelang Pintar Guardian (Smart Kids Tracker)",
+  "description": "Aplikasi monitoring gelang pintar berbasis Arduino untuk anak-anak, fitur pelacakan lokasi, detak jantung, dan analisis AI.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
