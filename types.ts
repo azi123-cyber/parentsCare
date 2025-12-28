@@ -25,6 +25,7 @@ export interface LogEntry {
   description: string;
 }
 
+
 export interface GPSCoordinates {
   lat: number;
   lng: number;
@@ -36,18 +37,25 @@ export interface GPSCoordinates {
 export interface PhoneData {
   isOnline: boolean;
   batteryLevel: number; // Real API
-  isCharging: boolean;
-  location?: GPSCoordinates;
+  isVibrating?: boolean;
+  gpsActive?: boolean;
+  lastPing?: Date;
+  isCharging?: boolean; // Made optional
+  location?: Partial<GPSCoordinates> & { lat: number, lng: number, updatedAt: number }; // Allow partial for compatibility
 }
 
 export interface BraceletData {
   id: string;
+  childName?: string; // Added
   status: 'terhubung' | 'terputus';
   lastUpdate: Date;
-  rawValue: string; // Raw data string from Arduino
-  batteryLevel: number; // Parsed from Arduino
+  rawValue?: string; // Made optional
+  batteryLevel: number;
   isBuzzerOn: boolean;
   isLedOn: boolean;
+  lastCommandSent?: string; // Added
+  signalStrength: number; // Added
+  locationName?: string; // Added
 }
 
 export interface AnalysisResult {

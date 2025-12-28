@@ -1,6 +1,6 @@
 
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, onValue, remove, get, update, child } from "firebase/database";
+import { getDatabase, ref, set, onValue, remove, get, update, child, onDisconnect } from "firebase/database";
 import { GPSCoordinates, UserProfile, ChildCredentials } from "../types";
 
 const firebaseConfig = {
@@ -19,8 +19,8 @@ const db = getDatabase(app);
 // --- AUTHENTICATION ---
 
 export const registerTemporaryAccount = async (
-  username: string, 
-  password: string, 
+  username: string,
+  password: string,
   childName: string,
   childPhone: string
 ) => {
@@ -52,8 +52,12 @@ export const verifyOtpAndCreateAccount = async (username: string, inputOtp: stri
   if (String(data.otp) !== String(inputOtp)) throw new Error("Kode OTP salah.");
 
   const familyId = `fam_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-  const childUsername = `kids_${sanitizedUser}`;
-  const childPassword = Math.floor(1000 + Math.random() * 9000).toString(); 
+
+  // Use child's actual name for username (sanitized)
+  const childUsername = data.childName.toLowerCase().replace(/\s/g, '');
+
+  // Generate stronger password (alphanumeric, 8 chars)
+  const childPassword = Math.random().toString(36).slice(-8);
   const sessionId = Date.now().toString();
 
   const parentData = {
@@ -81,7 +85,7 @@ export const verifyOtpAndCreateAccount = async (username: string, inputOtp: stri
     parentUsername: sanitizedUser,
     childUsername: childUsername,
     createdAt: Date.now(),
-    childCredentials: { username: childUsername, pin: childPassword }
+    childCredentials: { username: childUsername, pin: childPassword } // Keeping key as 'pin' for compatibility but storing password
   };
 
   await update(ref(db), updates);
@@ -140,6 +144,13 @@ export const listenToChildLocation = (familyId: string, callback: (coords: GPSCo
   return onValue(ref(db, `families/${familyId}/childLocation`), (s) => callback(s.exists() ? s.val() : null));
 };
 
+// Alias agar sesuai dengan import di App.tsx
+export const listenToLocationUpdates = listenToChildLocation;
+
+export const updateDeviceLocation = async (familyId: string, lat: number, lng: number) => {
+  await updateMyLocation(familyId, 'child', { lat, lng, updatedAt: Date.now(), accuracy: 0, provider: 'network' });
+};
+
 // Child listens to Parent's location
 export const listenToParentLocation = (familyId: string, callback: (coords: GPSCoordinates | null) => void) => {
   return onValue(ref(db, `families/${familyId}/parentLocation`), (s) => callback(s.exists() ? s.val() : null));
@@ -147,14 +158,21 @@ export const listenToParentLocation = (familyId: string, callback: (coords: GPSC
 
 // --- COMMANDS ---
 
-export const sendCommandToChild = async (familyId: string, commandType: 'VIBRATE' | 'BUZZER_ON' | 'BUZZER_OFF') => {
+export const sendCommandToChild = async (familyId: string, commandType: 'VIBRATE' | 'STOP_VIBRATE' | 'BUZZER_ON' | 'BUZZER_OFF' | 'REQUEST_LOCATION') => {
+  const timestamp = Date.now();
   await set(ref(db, `families/${familyId}/commands`), {
     type: commandType,
-    timestamp: Date.now()
+    status: 'pending',
+    timestamp: timestamp
   });
+  await logSystemActivity(familyId, `Parent sent command: ${commandType}`);
 };
 
-export const listenForCommands = (familyId: string, onCommand: (cmd: {type: string, timestamp: number}) => void) => {
+export const requestChildLocation = async (familyId: string) => {
+  await sendCommandToChild(familyId, 'REQUEST_LOCATION');
+};
+
+export const listenForCommands = (familyId: string, onCommand: (cmd: { type: string, status: string, timestamp: number }) => void) => {
   return onValue(ref(db, `families/${familyId}/commands`), (snapshot) => {
     if (snapshot.exists()) {
       onCommand(snapshot.val());
@@ -162,6 +180,60 @@ export const listenForCommands = (familyId: string, onCommand: (cmd: {type: stri
   });
 };
 
+export const markCommandExecuted = async (familyId: string, type: string) => {
+  await update(ref(db, `families/${familyId}/commands`), { status: 'executed', executedAt: Date.now() });
+  await logSystemActivity(familyId, `Child executed command: ${type}`);
+};
+
 export const clearCommand = async (familyId: string) => {
   await remove(ref(db, `families/${familyId}/commands`));
+};
+
+// --- SYSTEM LOGS & ACTIVITY ---
+
+export const logSystemActivity = async (familyId: string, message: string) => {
+  const logRef = ref(db, `families/${familyId}/logs/${Date.now()}`);
+  await set(logRef, {
+    message,
+    timestamp: Date.now()
+  });
+
+  // Optional: Limit logs to last 20 entries
+  get(ref(db, `families/${familyId}/logs`)).then((snapshot) => {
+    if (snapshot.exists()) {
+      const logs = snapshot.val();
+      const keys = Object.keys(logs).sort();
+      if (keys.length > 20) {
+        remove(ref(db, `families/${familyId}/logs/${keys[0]}`));
+      }
+    }
+  });
+};
+
+// --- PRESENCE & STATUS SYSTEM ---
+
+export const setupChildPresence = (familyId: string) => {
+  const statusRef = ref(db, `families/${familyId}/childStatus`);
+  const connectedRef = ref(db, '.info/connected');
+
+  return onValue(connectedRef, (snap) => {
+    if (snap.val() === true) {
+      onDisconnect(statusRef).update({ online: false, lastSeen: Date.now() });
+      update(statusRef, { online: true, lastSeen: Date.now() });
+      logSystemActivity(familyId, "Child device connected");
+    }
+  });
+};
+
+export const listenToChildStatus = (familyId: string, callback: (status: { online: boolean, lastSeen: number, battery?: number, sos?: boolean } | null) => void) => {
+  return onValue(ref(db, `families/${familyId}/childStatus`), (s) => callback(s.exists() ? s.val() : null));
+};
+
+export const updateChildBattery = async (familyId: string, level: number) => {
+  await update(ref(db, `families/${familyId}/childStatus`), { battery: level });
+};
+
+export const updateChildSos = async (familyId: string, isSos: boolean) => {
+  await update(ref(db, `families/${familyId}/childStatus`), { sos: isSos, lastSeen: Date.now() });
+  await logSystemActivity(familyId, `SOS status changed: ${isSos}`);
 };

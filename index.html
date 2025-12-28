@@ -1,42 +1,82 @@
-
 <!DOCTYPE html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Guardian Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Guardian Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            primary: '#2563eb', // Royal Blue
+            secondary: '#64748b',
+          },
+          animation: {
+            blob: "blob 7s infinite",
+            "fade-in": "fadeIn 0.5s ease-out",
+            "scale-up": "scaleUp 0.3s ease-out",
+            "ping-slow": "ping 3s cubic-bezier(0, 0, 0.2, 1) infinite",
+          },
+          keyframes: {
+            blob: {
+              "0%": {
+                transform: "translate(0px, 0px) scale(1)",
+              },
+              "33%": {
+                transform: "translate(30px, -50px) scale(1.1)",
+              },
+              "66%": {
+                transform: "translate(-20px, 20px) scale(0.9)",
+              },
+              "100%": {
+                transform: "translate(0px, 0px) scale(1)",
+              },
             },
-            colors: {
-              primary: '#2563eb', // Royal Blue
-              secondary: '#64748b',
+            fadeIn: {
+              "0%": { opacity: "0" },
+              "100%": { opacity: "1" },
+            },
+            scaleUp: {
+              "0%": { transform: "scale(0.9)", opacity: "0" },
+              "100%": { transform: "scale(1)", opacity: "1" },
             }
-          }
+          },
         }
       }
-    </script>
-    <style>
-      body {
-        font-family: 'Inter', sans-serif;
-        background-color: #f8fafc; /* Slate 50 */
-        color: #0f172a;
-        overflow: hidden;
-        height: 100vh;
-      }
-      .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-      }
-      .pb-safe {
-        padding-bottom: env(safe-area-inset-bottom);
-      }
-    </style>
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0F172A;
+      /* Slate 900 */
+      color: #0f172a;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
+
+    html {
+      height: 100%;
+      width: 100%;
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -52,10 +92,12 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
-  <body>
-    <div id="root" class="h-full w-full"></div>
+
+<body>
+  <div id="root" class="h-full w-full"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>
